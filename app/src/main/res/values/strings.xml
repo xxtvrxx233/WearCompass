@@ -34,13 +34,14 @@
     <string name="calibration_needed">Compass needs calibration</string>
     <string name="calibration_title">Calibrate compass</string>
     <string name="calibration_instruction">Turn and flip the watch slowly so it faces every direction.</string>
-    <string name="calibration_flip_hint">Flip over</string>
+    <string name="calibration_flip_hint">Flip the watch over</string>
     <string name="calibration_start">Start calibration</string>
     <string name="calibration_recalibrate">Recalibrate</string>
-    <string name="calibration_start_hint">Tap start</string>
+    <string name="calibration_start_hint">Tap start to begin</string>
     <string name="calibration_recalibrate_hint">Tap start</string>
-    <string name="calibration_sampling">%1$d%%</string>
-    <string name="calibration_ready">Ready</string>
+    <string name="calibration_calibrated">Calibrated</string>
+    <string name="calibration_sampling">Sampling %1$d%%</string>
+    <string name="calibration_ready">Enough data collected</string>
     <string name="calibration_cancel">Cancel</string>
     <string name="calibration_failed">Calibration failed, try again</string>
     <string name="calibration_clear">Clear calibration data</string>
@@ -63,7 +64,7 @@
     <string name="altitude_unit_meters">Meters (m)</string>
     <string name="altitude_unit_feet">Feet (ft)</string>
     <string name="disconnect_charger">Unplug the charger</string>
-    <string name="calibration_charger_warning">Unplug the charger and move away before calibrating</string>
+    <string name="calibration_charger_warning">Unplug the charger before calibrating</string>
     <string name="about_section">About</string>
     <string name="open_source_licenses">Open source licenses</string>
     <string name="licenses_loading">Loading…</string>

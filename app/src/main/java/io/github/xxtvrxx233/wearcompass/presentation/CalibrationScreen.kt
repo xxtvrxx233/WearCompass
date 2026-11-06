@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +31,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
@@ -54,6 +54,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+private val StatusMinHeight = 44.dp
+
 @Composable
 fun CalibrationScreen(
     controller: CompassController,
@@ -74,6 +76,10 @@ fun CalibrationScreen(
 
     LaunchedEffect(ready) {
         if (ready && active) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+    }
+
+    LaunchedEffect(active, chargingInterference) {
+        if (active && chargingInterference) controller.cancelMagCalibration()
     }
 
     val fieldMicroTesla = controller.fieldMicroTesla.floatValue
@@ -135,7 +141,7 @@ fun CalibrationScreen(
                     text = when {
                         !active -> stringResource(
                             if (hasCalibration) {
-                                R.string.calibration_recalibrate_hint
+                                R.string.calibration_calibrated
                             } else {
                                 R.string.calibration_start_hint
                             },
@@ -144,11 +150,11 @@ fun CalibrationScreen(
                         needsFlip -> stringResource(R.string.calibration_flip_hint)
                         else -> stringResource(R.string.calibration_sampling, fraction)
                     },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp)
+                        .heightIn(min = StatusMinHeight),
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelMedium,
                     color = if (ready) {
                         Color(0xFF8FE3A5)
@@ -160,11 +166,11 @@ fun CalibrationScreen(
             item {
                 Text(
                     text = fieldText,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp)
+                        .heightIn(min = StatusMinHeight),
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
                     color = when {
                         chargingInterference -> MaterialTheme.colorScheme.error
