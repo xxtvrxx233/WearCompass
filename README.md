@@ -7,6 +7,26 @@ Meanwhile, compass apps available on the Play Store are either stuck with outdat
 
 So, I decided to build my own Wear OS compass app, powered entirely by vibe coding
 
+# Screenshots
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/screenshots/01-dial.png" width="200"></td>
+    <td align="center"><img src="docs/screenshots/02-dial-level.png" width="200"></td>
+    <td align="center"><img src="docs/screenshots/03-immersive.png" width="200"></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/04-immersive-level.png" width="200"></td>
+    <td align="center"><img src="docs/screenshots/05-settings_1.png" width="200"></td>
+    <td align="center"><img src="docs/screenshots/06-settings_2.png" width="200"></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/07-settings_3.png" width="200"></td>
+    <td align="center"><img src="docs/screenshots/08-calibration.png" width="200"></td>
+    <td align="center"><img src="docs/screenshots/09-baseline.png" width="200"></td>
+  </tr>
+</table>
+
 # Compatibility
 - Support any round-screen smartwatch running Wear OS 3+ (Android 11 / API 30)
 
