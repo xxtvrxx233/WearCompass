@@ -14,7 +14,7 @@
     <string name="north_magnetic">磁北</string>
     <string name="north_true_declination">真北 %1$s</string>
     <string name="magnetic_interference">磁场异常</string>
-    <string name="calibrate">需校准</string>
+    <string name="calibrate">需要校准</string>
     <string name="locating">定位中…</string>
     <string name="location_needed">需要定位权限</string>
     <string name="no_compass_sensor">无磁力计</string>

@@ -14,7 +14,7 @@
     <string name="north_magnetic">Magnetic</string>
     <string name="north_true_declination">True %1$s</string>
     <string name="magnetic_interference">Magnetic interference</string>
-    <string name="calibrate">Calibrate</string>
+    <string name="calibrate">Calibration Required</string>
     <string name="locating">Locating…</string>
     <string name="location_needed">Location needed</string>
     <string name="no_compass_sensor">No compass</string>
@@ -42,7 +42,7 @@
     <string name="field_unknown">Magnetic field —</string>
 
     <string name="level_indicator">Level indicator</string>
-    <string name="level_indicator_summary">Show a color block when level</string>
+    <string name="level_indicator_summary">Highlight when level</string>
     <string name="altitude_gps">GPS altitude</string>
     <string name="altitude_gps_summary">Use location to calibrate the baseline</string>
     <string name="altitude_display">Alt %1$s</string>
