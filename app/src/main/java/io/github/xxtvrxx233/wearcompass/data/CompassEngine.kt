@@ -9,7 +9,6 @@ import android.hardware.display.DisplayManager
 import android.util.Log
 import android.view.Display
 import android.view.Surface
-import android.view.WindowManager
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -41,8 +40,6 @@ class CompassEngine(context: Context) : SensorEventListener {
 
     private val sensorManager: SensorManager =
         context.applicationContext.getSystemService(SensorManager::class.java)
-    private val windowManager: WindowManager =
-        context.applicationContext.getSystemService(WindowManager::class.java)
 
     private val rotationVectorSensor: Sensor? =
         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)

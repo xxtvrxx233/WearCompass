@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.hardware.GeomagneticField
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 
 class DeclinationSource(context: Context) {
@@ -47,7 +48,9 @@ class DeclinationSource(context: Context) {
 
     private fun requestSingleFix(onResult: (Float) -> Unit, onUnavailable: () -> Unit) {
         val candidates = buildList {
-            add(LocationManager.FUSED_PROVIDER)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(LocationManager.FUSED_PROVIDER)
+            }
             add(LocationManager.NETWORK_PROVIDER)
             add(LocationManager.GPS_PROVIDER)
         }
@@ -67,12 +70,14 @@ class DeclinationSource(context: Context) {
 
     private fun bestLastKnownLocation(): Location? {
         var best: Location? = null
-        val providers = listOf(
-            LocationManager.FUSED_PROVIDER,
-            LocationManager.NETWORK_PROVIDER,
-            LocationManager.GPS_PROVIDER,
-            LocationManager.PASSIVE_PROVIDER,
-        )
+        val providers = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(LocationManager.FUSED_PROVIDER)
+            }
+            add(LocationManager.NETWORK_PROVIDER)
+            add(LocationManager.GPS_PROVIDER)
+            add(LocationManager.PASSIVE_PROVIDER)
+        }
         for (provider in providers) {
             val location = runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() ?: continue
             if (best == null || location.time > best.time) best = location

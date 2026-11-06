@@ -34,7 +34,7 @@ android {
 
     defaultConfig {
         applicationId = "io.github.xxtvrxx233.wearcompass"
-        minSdk = 36
+        minSdk = 30
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"

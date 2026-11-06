@@ -8,6 +8,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.wear.compose.material3.ColorScheme
 import androidx.wear.compose.material3.MaterialTheme
@@ -58,10 +59,12 @@ private fun timeTypography(): Typography {
     return base.copy(arcMedium = base.arcMedium.copy(fontFamily = WearFonts.medium))
 }
 
-private fun systemSeedColor(context: Context): Int? =
-    runCatching {
+private fun systemSeedColor(context: Context): Int? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+    return runCatching {
         ContextCompat.getColor(context, android.R.color.system_accent1_500)
     }.getOrNull()
+}
 
 private fun MaterialColorScheme.toWearColorScheme(): ColorScheme = ColorScheme(
     primary = primaryFixed,
