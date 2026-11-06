@@ -63,8 +63,8 @@
     <string name="altitude_unit">Altitude unit</string>
     <string name="altitude_unit_meters">Meters (m)</string>
     <string name="altitude_unit_feet">Feet (ft)</string>
-    <string name="disconnect_charger">Unplug the charger</string>
-    <string name="calibration_charger_warning">Unplug the charger before calibrating</string>
+    <string name="disconnect_charger">Disconnect the charger</string>
+    <string name="calibration_charger_warning">Disconnect the charger before calibrating</string>
     <string name="about_section">About</string>
     <string name="open_source_licenses">Open source licenses</string>
     <string name="licenses_loading">Loading…</string>
@@ -76,7 +76,7 @@
     <string name="baseline_sample">Start sampling</string>
     <string name="baseline_sampling">Sampling %1$d%%</string>
     <string name="baseline_reset">Reset to default</string>
-    <string name="baseline_charging_hint">Unplug the charger before sampling</string>
+    <string name="baseline_charging_hint">Disconnect the charger before sampling</string>
     <string name="baseline_multiplier">Warning multiplier</string>
     <string name="baseline_hint">Stay away from magnets and metal for about 5 seconds</string>
     <string name="settings_theme_color">Theme color</string>
