@@ -5,7 +5,9 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.display.DisplayManager
 import android.util.Log
+import android.view.Display
 import android.view.Surface
 import android.view.WindowManager
 import kotlin.math.abs
@@ -21,6 +23,14 @@ data class HeadingSample(
     val fieldMicroTesla: Float,
 
     val pressureHpa: Float,
+
+    val calibrationProgress: Float = 0f,
+
+    val calibrationReady: Boolean = false,
+
+    val calibrationDrift: Boolean = false,
+
+    val calibrationNeedsFlip: Boolean = false,
 )
 
 class CompassEngine(context: Context) : SensorEventListener {
@@ -45,11 +55,32 @@ class CompassEngine(context: Context) : SensorEventListener {
     private val magnetometer: Sensor? =
         sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
+    private val magCalibration = MagCalibrationStore(context)
+    private val calibrationSampler = MagCalibrationSampler()
+    private var calibrationActive = false
+    private var calibrationDrift = false
+
+    private val displayManager: DisplayManager? =
+        context.applicationContext.getSystemService(DisplayManager::class.java)
+
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId != Display.DEFAULT_DISPLAY) return
+            val rotation = currentDisplayRotation()
+            if (rotation == displayRotation) return
+            displayRotation = rotation
+            azimuth = Float.NaN
+        }
+    }
+
     private val rotationMatrix = FloatArray(9)
     private val screenMatrix = FloatArray(9)
     private val orientation = FloatArray(3)
     private val gravity = FloatArray(3)
     private val geomagnetic = FloatArray(3)
+    private val magValues = FloatArray(3)
 
     private var listener: Listener? = null
     private var fusedSensor: Sensor? = null
@@ -62,6 +93,7 @@ class CompassEngine(context: Context) : SensorEventListener {
     private var azimuth = Float.NaN
     private var headingAccuracy = -1f
     private var accuracyStatus = UNKNOWN_ACCURACY
+    @Volatile
     private var displayRotation = Surface.ROTATION_0
     private var lastEmitNanos = 0L
     private var lastLogNanos = 0L
@@ -80,23 +112,16 @@ class CompassEngine(context: Context) : SensorEventListener {
         haveGravity = false
         haveGeomagnetic = false
         displayRotation = currentDisplayRotation()
+        displayManager?.registerDisplayListener(displayListener, null)
 
         pressureSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
         fusedSensor = rotationVectorSensor ?: geomagneticRotationSensor
-        val fused = fusedSensor
-        splitMode = fused == null
-        if (fused != null) {
-            sensorManager.registerListener(this, fused, SENSOR_PERIOD_US)
-
-            magnetometer?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-            }
-        } else if (accelerometer != null && magnetometer != null) {
-            sensorManager.registerListener(this, accelerometer, SENSOR_PERIOD_US)
-            sensorManager.registerListener(this, magnetometer, SENSOR_PERIOD_US)
-        }
+        splitMode = fusedSensor == null
+        fusedSensor?.let { sensorManager.registerListener(this, it, SENSOR_PERIOD_US) }
+        magnetometer?.let { sensorManager.registerListener(this, it, SENSOR_PERIOD_US) }
+        accelerometer?.let { sensorManager.registerListener(this, it, SENSOR_PERIOD_US) }
     }
 
     fun stop() {
@@ -104,6 +129,7 @@ class CompassEngine(context: Context) : SensorEventListener {
         fieldMicroTesla = Float.NaN
         pressureHpa = Float.NaN
         sensorManager.unregisterListener(this)
+        displayManager?.unregisterDisplayListener(displayListener)
         fusedSensor = null
         splitMode = false
     }
@@ -121,6 +147,7 @@ class CompassEngine(context: Context) : SensorEventListener {
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR,
             Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR -> {
+                if (magCalibration.hasCalibration) return
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
 
                 headingAccuracy = if (event.values.size >= 5) event.values[4] else -1f
@@ -136,14 +163,25 @@ class CompassEngine(context: Context) : SensorEventListener {
             Sensor.TYPE_ACCELEROMETER -> {
                 lowPass(event.values, gravity, if (haveGravity) 0.25f else 0f)
                 haveGravity = true
+                if (!magCalibration.hasCalibration && !splitMode) return
                 if (!haveGeomagnetic) return
                 if (!SensorManager.getRotationMatrix(rotationMatrix, null, gravity, geomagnetic)) return
             }
 
             Sensor.TYPE_MAGNETIC_FIELD -> {
-                updateFieldStrength(event.values)
-                if (!splitMode) return
-                lowPass(event.values, geomagnetic, if (haveGeomagnetic) 0.25f else 0f)
+                for (i in 0 until minOf(3, event.values.size)) magValues[i] = event.values[i]
+
+                val corrected = magCalibration.apply(
+                    event.values[0], event.values[1], event.values[2],
+                )
+                updateFieldStrength(corrected)
+                updateCalibrationHealth(corrected)
+                if (calibrationActive) {
+                    calibrationSampler.add(event.values[0], event.values[1], event.values[2])
+                }
+
+                if (!magCalibration.hasCalibration && !splitMode) return
+                lowPass(corrected, geomagnetic, if (haveGeomagnetic) 0.25f else 0f)
                 haveGeomagnetic = true
                 if (!haveGravity) return
                 if (!SensorManager.getRotationMatrix(rotationMatrix, null, gravity, geomagnetic)) return
@@ -174,7 +212,8 @@ class CompassEngine(context: Context) : SensorEventListener {
                 TAG,
                 "azimuth=%.2f° raw=%.2f° tilt=%.1f° field=%.1fµT p=%.1fhPa "
                     .format(azimuth, rawAzimuth, tilt, fieldMicroTesla, pressureHpa) +
-                    "headingAcc=${headingAccuracy}rad status=$accuracyStatus " +
+                    "rot=$displayRotation status=$accuracyStatus " +
+                    "mag=(%.1f,%.1f,%.1f) ".format(magValues[0], magValues[1], magValues[2]) +
                     "sensor=${sensor?.name ?: "accel+mag"} split=$splitMode",
             )
         }
@@ -186,6 +225,10 @@ class CompassEngine(context: Context) : SensorEventListener {
                 magnetometerAccuracy = accuracyStatus,
                 fieldMicroTesla = fieldMicroTesla,
                 pressureHpa = pressureHpa,
+                calibrationProgress = if (calibrationActive) calibrationSampler.progress else 0f,
+                calibrationReady = calibrationActive && calibrationSampler.ready,
+                calibrationDrift = calibrationDrift,
+                calibrationNeedsFlip = calibrationActive && calibrationSampler.needsFlip,
             ),
         )
     }
@@ -205,8 +248,58 @@ class CompassEngine(context: Context) : SensorEventListener {
         }
     }
 
-    @Suppress("DEPRECATION")
-    private fun currentDisplayRotation(): Int = windowManager.defaultDisplay?.rotation ?: Surface.ROTATION_0
+    private fun currentDisplayRotation(): Int =
+        displayManager?.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: Surface.ROTATION_0
+
+    private fun updateCalibrationHealth(corrected: FloatArray) {
+        if (!magCalibration.hasCalibration) {
+            calibrationDrift = false
+            return
+        }
+        val expected = magCalibration.expectedStrength
+        if (expected <= 0f) return
+        val strength = sqrt(
+            corrected[0] * corrected[0] + corrected[1] * corrected[1] + corrected[2] * corrected[2],
+        )
+        if (strength <= 0f) return
+        calibrationDrift = abs(strength - expected) / expected > CALIBRATION_DRIFT_RATIO
+    }
+
+    fun beginCalibration() {
+        calibrationSampler.reset()
+        calibrationActive = true
+        calibrationDrift = false
+    }
+
+    fun finishCalibration(): Boolean {
+        if (!calibrationActive) return false
+        val result = calibrationSampler.fit()
+        calibrationActive = false
+        if (result == null) return false
+        magCalibration.save(result)
+        azimuth = Float.NaN
+        haveGeomagnetic = false
+        return true
+    }
+
+    fun cancelCalibration() {
+        calibrationActive = false
+        calibrationSampler.reset()
+    }
+
+    fun clearCalibration() {
+        magCalibration.clear()
+        calibrationActive = false
+        calibrationDrift = false
+        azimuth = Float.NaN
+        haveGeomagnetic = false
+    }
+
+    val hasCalibration: Boolean
+        get() = magCalibration.hasCalibration
+
+    val calibratedStrength: Float
+        get() = magCalibration.expectedStrength
 
     private fun updateFieldStrength(values: FloatArray) {
         if (values.size < 3) return
@@ -243,6 +336,7 @@ class CompassEngine(context: Context) : SensorEventListener {
 
         private const val SENSOR_PERIOD_US = 16_000
         private const val LOG_INTERVAL_NANOS = 2_000_000_000L
+        private const val CALIBRATION_DRIFT_RATIO = 0.35f
     }
 }
 

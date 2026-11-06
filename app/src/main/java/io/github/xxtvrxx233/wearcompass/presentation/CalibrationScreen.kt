@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
@@ -41,6 +42,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.compose.material.icons.Icons
@@ -48,20 +50,9 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import io.github.xxtvrxx233.wearcompass.R
 import java.util.Locale
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlinx.coroutines.delay
-
-private const val REQUIRED_ROTATION_DEGREES = 720f
-
-private const val MIN_STEP_DEGREES = 0.4f
-
-private const val MAX_STEP_DEGREES = 25f
-
-private const val HAPTIC_STEP_DEGREES = 90f
-
-private const val SAMPLE_INTERVAL_MILLIS = 100L
 
 @Composable
 fun CalibrationScreen(
@@ -71,33 +62,18 @@ fun CalibrationScreen(
 ) {
     val listState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
-
-    val chargingInterference = controller.chargingInterference.value
-    var turnedDegrees by remember { mutableFloatStateOf(0f) }
     val haptics = LocalHapticFeedback.current
-    LaunchedEffect(controller) {
-        var lastHeading = controller.targetAzimuth.floatValue
-        var nextHapticAt = HAPTIC_STEP_DEGREES
-        while (true) {
-            delay(SAMPLE_INTERVAL_MILLIS)
 
-            if (controller.chargingInterference.value) continue
+    val active = controller.magCalibrationActive.value
+    val progress = controller.magCalibrationProgress.value
+    val ready = controller.magCalibrationReady.value
+    val hasCalibration = controller.hasMagCalibration.value
+    val needsFlip = controller.magCalibrationNeedsFlip.value
+    val chargingInterference = controller.chargingInterference.value
+    var failed by remember { mutableStateOf(false) }
 
-            val heading = controller.targetAzimuth.floatValue
-            var delta = heading - lastHeading
-            if (delta > 180f) delta -= 360f
-            if (delta < -180f) delta += 360f
-            lastHeading = heading
-
-            val step = abs(delta)
-            if (step < MIN_STEP_DEGREES || step > MAX_STEP_DEGREES) continue
-
-            turnedDegrees = (turnedDegrees + step).coerceAtMost(REQUIRED_ROTATION_DEGREES)
-            if (turnedDegrees >= nextHapticAt) {
-                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                nextHapticAt += HAPTIC_STEP_DEGREES
-            }
-        }
+    LaunchedEffect(ready) {
+        if (ready && active) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
     }
 
     val fieldMicroTesla = controller.fieldMicroTesla.floatValue
@@ -109,7 +85,6 @@ fun CalibrationScreen(
         interference -> stringResource(R.string.field_interference, fieldValue)
         else -> stringResource(R.string.field_strength, fieldValue)
     }
-    val completed = turnedDegrees >= REQUIRED_ROTATION_DEGREES
 
     ScreenScaffold(
         scrollState = listState,
@@ -141,7 +116,7 @@ fun CalibrationScreen(
             }
             item {
                 Figure8Animation(
-                    completed = completed,
+                    completed = ready,
                     modifier = Modifier.fillMaxWidth().height(86.dp).padding(horizontal = 24.dp),
                 )
             }
@@ -155,20 +130,27 @@ fun CalibrationScreen(
                 )
             }
             item {
+                val fraction = (progress * 100f).roundToInt()
                 Text(
-                    text = if (completed) {
-                        stringResource(R.string.calibration_finished)
-                    } else {
-                        stringResource(
-                            R.string.calibration_progress,
-                            turnedDegrees.toInt(),
-                            REQUIRED_ROTATION_DEGREES.toInt(),
+                    text = when {
+                        !active -> stringResource(
+                            if (hasCalibration) {
+                                R.string.calibration_recalibrate_hint
+                            } else {
+                                R.string.calibration_start_hint
+                            },
                         )
+                        ready -> stringResource(R.string.calibration_ready)
+                        needsFlip -> stringResource(R.string.calibration_flip_hint)
+                        else -> stringResource(R.string.calibration_sampling, fraction)
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (completed) {
+                    color = if (ready) {
                         Color(0xFF8FE3A5)
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -180,9 +162,11 @@ fun CalibrationScreen(
                     text = fieldText,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelSmall,
                     color = when {
-
                         chargingInterference -> MaterialTheme.colorScheme.error
                         interference -> Color(0xFFFFB020)
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -190,19 +174,81 @@ fun CalibrationScreen(
                 )
             }
 
-            if (completed) {
+            if (!active) {
                 item {
                     Button(
-                        onClick = onBack,
+                        onClick = {
+                            failed = false
+                            controller.beginMagCalibration()
+                        },
+                        enabled = !chargingInterference,
+                        label = {
+                            Text(
+                                stringResource(
+                                    if (hasCalibration) {
+                                        R.string.calibration_recalibrate
+                                    } else {
+                                        R.string.calibration_start
+                                    },
+                                ),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                    )
+                }
+                if (hasCalibration) {
+                    item {
+                        FilledTonalButton(
+                            onClick = {
+                                failed = false
+                                controller.clearMagCalibration()
+                            },
+                            label = { Text(stringResource(R.string.calibration_clear)) },
+                            modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                            transformation = SurfaceTransformation(transformationSpec),
+                        )
+                    }
+                }
+            } else {
+                item {
+                    Button(
+                        onClick = {
+                            if (controller.finishMagCalibration()) {
+                                onBack()
+                            } else {
+                                failed = true
+                            }
+                        },
+                        enabled = ready && !chargingInterference,
                         label = { Text(stringResource(R.string.calibration_done)) },
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
                     )
                 }
+                item {
+                    FilledTonalButton(
+                        onClick = { controller.cancelMagCalibration() },
+                        label = { Text(stringResource(R.string.calibration_cancel)) },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                    )
+                }
+            }
+
+            if (failed) {
+                item {
+                    Text(
+                        text = stringResource(R.string.calibration_failed),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }
-
 }
 
 @Composable

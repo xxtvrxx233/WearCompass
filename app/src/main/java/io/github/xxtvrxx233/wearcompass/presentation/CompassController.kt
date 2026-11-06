@@ -74,6 +74,13 @@ class CompassController(
 
     val immersiveMode = mutableStateOf(preferences.getBoolean(KEY_IMMERSIVE_MODE, false))
 
+    val magCalibrationActive = mutableStateOf(false)
+    val magCalibrationProgress = mutableFloatStateOf(0f)
+    val magCalibrationReady = mutableStateOf(false)
+    val magCalibrationDrift = mutableStateOf(false)
+    val magCalibrationNeedsFlip = mutableStateOf(false)
+    val hasMagCalibration = mutableStateOf(engine.hasCalibration)
+
     val altitudeUnit = mutableStateOf(
         runCatching {
             AltitudeUnit.valueOf(preferences.getString(KEY_ALTITUDE_UNIT, AltitudeUnit.METERS.name)!!)
@@ -82,6 +89,7 @@ class CompassController(
 
     val altitudeUseGpsCalibration = mutableStateOf(preferences.getBoolean(KEY_ALTITUDE_GPS, false))
 
+    private var fieldAbnormalSinceNanos = 0L
     private var lastPressureHpa = Float.NaN
     val hint = mutableStateOf(CompassHint.NONE)
 
@@ -145,7 +153,14 @@ class CompassController(
         }
         updateMagneticField(sample.fieldMicroTesla)
         updatePressure(sample.pressureHpa)
-        needsCalibration.value = shouldSuggestCalibration(sample)
+        if (magCalibrationActive.value) {
+            magCalibrationProgress.floatValue = sample.calibrationProgress
+            magCalibrationReady.value = sample.calibrationReady
+            magCalibrationNeedsFlip.value = sample.calibrationNeedsFlip
+        }
+        magCalibrationDrift.value = sample.calibrationDrift
+        needsCalibration.value =
+            shouldSuggestCalibration(sample) || sample.calibrationDrift || sustainedFieldAbnormal(sample)
     }
 
     private fun updateMagneticField(field: Float) {
@@ -378,9 +393,65 @@ class CompassController(
         )
     }
 
+    fun beginMagCalibration() {
+        engine.beginCalibration()
+        magCalibrationActive.value = true
+        magCalibrationProgress.floatValue = 0f
+        magCalibrationReady.value = false
+        magCalibrationNeedsFlip.value = false
+    }
+
+    fun finishMagCalibration(): Boolean {
+        val result = engine.finishCalibration()
+        magCalibrationActive.value = false
+        magCalibrationProgress.floatValue = 0f
+        magCalibrationReady.value = false
+        if (result) {
+            hasMagCalibration.value = true
+            magCalibrationDrift.value = false
+            azimuthReset()
+        }
+        return result
+    }
+
+    fun cancelMagCalibration() {
+        engine.cancelCalibration()
+        magCalibrationActive.value = false
+        magCalibrationProgress.floatValue = 0f
+        magCalibrationReady.value = false
+    }
+
+    fun clearMagCalibration() {
+        engine.clearCalibration()
+        hasMagCalibration.value = false
+        magCalibrationDrift.value = false
+        azimuthReset()
+    }
+
+    private fun azimuthReset() {
+        hasHeading = false
+        needsCalibration.value = false
+    }
+
+    private fun sustainedFieldAbnormal(sample: HeadingSample): Boolean {
+        val field = sample.fieldMicroTesla
+        val abnormal = !field.isNaN() && (field < FIELD_NORMAL_MIN || field > FIELD_NORMAL_MAX)
+        if (!abnormal) {
+            fieldAbnormalSinceNanos = 0L
+            return false
+        }
+        val now = System.nanoTime()
+        if (fieldAbnormalSinceNanos == 0L) {
+            fieldAbnormalSinceNanos = now
+            return false
+        }
+        return now - fieldAbnormalSinceNanos > FIELD_ABNORMAL_HOLD_NANOS
+    }
+
     private fun shouldSuggestCalibration(sample: HeadingSample): Boolean {
         val status = sample.magnetometerAccuracy
         if (status == SensorManager.SENSOR_STATUS_UNRELIABLE) return true
+        if (sample.calibrationDrift) return true
         if (status == SensorManager.SENSOR_STATUS_ACCURACY_HIGH) return false
         val accuracy = sample.headingAccuracyRadians
         val provided = accuracy >= 0f && abs(accuracy - HEADING_ACCURACY_PLACEHOLDER) > 0.02f
@@ -410,6 +481,9 @@ class CompassController(
         const val KEY_ALTITUDE_GPS = "altitude_gps"
         const val KEY_ALTITUDE_UNIT = "altitude_unit"
         const val CALIBRATION_WARN_RADIANS = 0.5f
+        const val FIELD_NORMAL_MIN = 18f
+        const val FIELD_NORMAL_MAX = 85f
+        const val FIELD_ABNORMAL_HOLD_NANOS = 8_000_000_000L
         const val TILT_STATE_STEP_DEGREES = 0.3f
         const val TARGET_STATE_STEP_DEGREES = 0.05f
 
