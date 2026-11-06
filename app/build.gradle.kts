@@ -39,6 +39,9 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        ndk {
+            abiFilters += "armeabi-v7a"
+        }
     }
 
     buildTypes {
