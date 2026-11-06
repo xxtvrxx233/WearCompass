@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -27,6 +28,8 @@ import androidx.wear.compose.material3.MaterialTheme
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+
+private const val IMMERSIVE_DIAL_SCALE = 1.18f
 
 internal object DialDesign {
 
@@ -60,6 +63,7 @@ internal fun CompassDialFrame(
     tilt: () -> Float,
     degrees: () -> Int,
     levelEnabled: Boolean = true,
+    immersive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val textMeasurer = rememberTextMeasurer(cacheSize = 64)
@@ -102,46 +106,48 @@ internal fun CompassDialFrame(
 
             drawRect(Color.Black)
 
-            drawTicks(center, radius, currentHeading)
+            scale(if (immersive) IMMERSIVE_DIAL_SCALE else 1f, pivot = center) {
+                drawTicks(center, radius, currentHeading)
 
-            val labelRadius = radius * DialDesign.letterRadius
-            cardinalLayouts.forEach { (bearing, layout) ->
-                val theta = Math.toRadians((bearing - currentHeading).toDouble())
-                val x = center.x + labelRadius * sin(theta).toFloat()
-                val y = center.y - labelRadius * cos(theta).toFloat()
-                drawText(
-                    textLayoutResult = layout,
-                    topLeft = Offset(x - layout.size.width / 2f, y - layout.size.height / 2f),
-                )
-            }
+                val labelRadius = radius * DialDesign.letterRadius
+                cardinalLayouts.forEach { (bearing, layout) ->
+                    val theta = Math.toRadians((bearing - currentHeading).toDouble())
+                    val x = center.x + labelRadius * sin(theta).toFloat()
+                    val y = center.y - labelRadius * cos(theta).toFloat()
+                    drawText(
+                        textLayoutResult = layout,
+                        topLeft = Offset(x - layout.size.width / 2f, y - layout.size.height / 2f),
+                    )
+                }
 
-            val discAlpha = (levelness * 1.8f).coerceIn(0f, 1f) * DialDesign.discLevelAlpha
-            if (discAlpha > 0.01f) {
-                drawCircle(
-                    color = accent.copy(alpha = discAlpha),
-                    radius = radius * DialDesign.discRadius,
+                val discAlpha = (levelness * 1.8f).coerceIn(0f, 1f) * DialDesign.discLevelAlpha
+                if (discAlpha > 0.01f) {
+                    drawCircle(
+                        color = accent.copy(alpha = discAlpha),
+                        radius = radius * DialDesign.discRadius,
+                        center = center,
+                    )
+                }
+
+                translate(left = center.x, top = center.y) {
+                    drawPath(indexPath, accent)
+                }
+
+                drawReadout(
                     center = center,
+                    radius = radius,
+                    degrees = degrees(),
+                    directionLayouts = directionLayouts,
+                    styles = styles,
+                    textMeasurer = textMeasurer,
+
+                    contentColor = lerp(
+                        Color.White,
+                        levelContentColor,
+                        ((levelness - 0.12f) / 0.18f).coerceIn(0f, 1f),
+                    ),
                 )
             }
-
-            translate(left = center.x, top = center.y) {
-                drawPath(indexPath, accent)
-            }
-
-            drawReadout(
-                center = center,
-                radius = radius,
-                degrees = degrees(),
-                directionLayouts = directionLayouts,
-                styles = styles,
-                textMeasurer = textMeasurer,
-
-                contentColor = lerp(
-                    Color.White,
-                    levelContentColor,
-                    ((levelness - 0.12f) / 0.18f).coerceIn(0f, 1f),
-                ),
-            )
         }
     }
 }
@@ -158,6 +164,7 @@ fun CompassDial(
         tilt = { controller.tiltDegrees.floatValue },
         degrees = { controller.shownDegrees.intValue },
         levelEnabled = controller.levelIndicatorEnabled.value,
+        immersive = controller.immersiveMode.value,
         modifier = modifier,
     )
 }

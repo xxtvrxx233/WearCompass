@@ -192,6 +192,7 @@ fun CompassScreen(
         altitude = { controller.altitudeMeters.floatValue },
         altitudeUnit = controller.altitudeUnit.value,
         levelEnabled = controller.levelIndicatorEnabled.value,
+        immersive = controller.immersiveMode.value,
     )
 }
 
@@ -206,6 +207,7 @@ internal fun CompassScreenFrame(
     altitude: () -> Float = { Float.NaN },
     altitudeUnit: AltitudeUnit = AltitudeUnit.METERS,
     levelEnabled: Boolean = true,
+    immersive: Boolean = false,
 ) {
     val a11yTemplate = stringResource(R.string.a11y_heading_format)
 
@@ -229,12 +231,13 @@ internal fun CompassScreenFrame(
             tilt = tilt,
             degrees = degrees,
             levelEnabled = levelEnabled,
+            immersive = immersive,
             modifier = Modifier.fillMaxSize(),
         )
 
         val altitudeTemplate = stringResource(R.string.altitude_display)
         val meters = altitude()
-        if (!meters.isNaN()) {
+        if (!immersive && !meters.isNaN()) {
             val feet = altitudeUnit == AltitudeUnit.FEET
 
             val value = if (feet) meters * 3.28084f else meters
@@ -245,7 +248,7 @@ internal fun CompassScreenFrame(
             )
         }
 
-        if (levelEnabled) {
+        if (!immersive && levelEnabled) {
             val tiltTemplate = stringResource(R.string.tilt_display)
             val tiltDegrees by remember { derivedStateOf { tilt().roundToInt() } }
             SideCurvedText(
@@ -254,23 +257,25 @@ internal fun CompassScreenFrame(
             )
         }
 
-        CurvedLayout(
-            modifier = Modifier.fillMaxSize(),
-            anchor = BOTTOM_ANCHOR_DEGREES,
+        if (!immersive) {
+            CurvedLayout(
+                modifier = Modifier.fillMaxSize(),
+                anchor = BOTTOM_ANCHOR_DEGREES,
 
-            angularDirection = CurvedDirection.Angular.CounterClockwise,
-        ) {
-            curvedRow(
-                modifier = CurvedModifier.sizeIn(maxSweepDegrees = STATUS_MAX_SWEEP_DEGREES),
-                radialAlignment = CurvedAlignment.Radial.Center,
+                angularDirection = CurvedDirection.Angular.CounterClockwise,
             ) {
-                basicCurvedText(infoText) {
-                    CurvedTextStyle(
+                curvedRow(
+                    modifier = CurvedModifier.sizeIn(maxSweepDegrees = STATUS_MAX_SWEEP_DEGREES),
+                    radialAlignment = CurvedAlignment.Radial.Center,
+                ) {
+                    basicCurvedText(infoText) {
+                        CurvedTextStyle(
 
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f),
-                        fontSize = 13.5.sp,
-                        fontFamily = WearFonts.medium,
-                    )
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f),
+                            fontSize = 13.5.sp,
+                            fontFamily = WearFonts.medium,
+                        )
+                    }
                 }
             }
         }

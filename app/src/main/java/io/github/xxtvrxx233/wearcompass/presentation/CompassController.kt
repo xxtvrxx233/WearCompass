@@ -72,6 +72,8 @@ class CompassController(
 
     val levelIndicatorEnabled = mutableStateOf(preferences.getBoolean(KEY_LEVEL_INDICATOR, true))
 
+    val immersiveMode = mutableStateOf(preferences.getBoolean(KEY_IMMERSIVE_MODE, false))
+
     val altitudeUnit = mutableStateOf(
         runCatching {
             AltitudeUnit.valueOf(preferences.getString(KEY_ALTITUDE_UNIT, AltitudeUnit.METERS.name)!!)
@@ -327,6 +329,11 @@ class CompassController(
         preferences.edit().putBoolean(KEY_LEVEL_INDICATOR, enabled).apply()
     }
 
+    fun setImmersiveMode(enabled: Boolean) {
+        immersiveMode.value = enabled
+        preferences.edit().putBoolean(KEY_IMMERSIVE_MODE, enabled).apply()
+    }
+
     fun hasLocationPermission(): Boolean = declinationSource.hasPermission()
 
     fun hasFineLocationPermission(): Boolean = declinationSource.hasFinePermission()
@@ -399,6 +406,7 @@ class CompassController(
         const val PREFS_NAME = "wear_compass"
         const val KEY_TRUE_NORTH = "true_north"
         const val KEY_LEVEL_INDICATOR = "level_indicator"
+        const val KEY_IMMERSIVE_MODE = "immersive_mode"
         const val KEY_ALTITUDE_GPS = "altitude_gps"
         const val KEY_ALTITUDE_UNIT = "altitude_unit"
         const val CALIBRATION_WARN_RADIANS = 0.5f

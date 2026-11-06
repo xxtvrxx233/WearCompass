@@ -45,6 +45,7 @@ import androidx.compose.ui.util.lerp
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.TimeText
 import io.github.xxtvrxx233.wearcompass.data.normalizeDegrees
 import io.github.xxtvrxx233.wearcompass.presentation.theme.ThemePreferences
 import kotlin.math.abs
@@ -190,7 +191,14 @@ fun CompassApp(
         }
     }
 
-    AppScaffold {
+    AppScaffold(
+        timeText = {
+            val hideTime = controller.immersiveMode.value &&
+                pagerState.currentPage == TAB_COMPASS &&
+                overlayRoute == null
+            if (!hideTime) TimeText()
+        },
+    ) {
         BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
             val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
             val isRound = LocalConfiguration.current.isScreenRound
@@ -254,7 +262,10 @@ fun CompassApp(
                 }
             }
 
-            if (overlayRoute == null && abs(pagerState.currentPageOffsetFraction) > 0.01f) {
+            if (!controller.immersiveMode.value &&
+                overlayRoute == null &&
+                abs(pagerState.currentPageOffsetFraction) > 0.01f
+            ) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

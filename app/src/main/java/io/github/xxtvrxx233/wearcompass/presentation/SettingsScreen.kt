@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.List
@@ -153,6 +154,17 @@ fun SettingsScreen(
                         label = { Text(stringResource(R.string.level_indicator)) },
                         secondaryLabel = { Text(stringResource(R.string.level_indicator_summary)) },
                         icon = { Icon(Icons.Rounded.Star, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                    )
+                }
+                item {
+                    SwitchButton(
+                        checked = controller.immersiveMode.value,
+                        onCheckedChange = controller::setImmersiveMode,
+                        label = { Text(stringResource(R.string.immersive_mode)) },
+                        secondaryLabel = { Text(stringResource(R.string.immersive_mode_summary)) },
+                        icon = { Icon(Icons.Rounded.Fullscreen, contentDescription = null) },
                         modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
                     )

@@ -43,6 +43,8 @@
 
     <string name="level_indicator">Level indicator</string>
     <string name="level_indicator_summary">Highlight when level</string>
+    <string name="immersive_mode">Immersive mode</string>
+    <string name="immersive_mode_summary">Full-screen dial</string>
     <string name="altitude_gps">GPS altitude</string>
     <string name="altitude_gps_summary">Use location to calibrate the baseline</string>
     <string name="altitude_display">Alt %1$s</string>

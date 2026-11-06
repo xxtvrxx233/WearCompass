@@ -43,6 +43,8 @@
 
     <string name="level_indicator">水平仪</string>
     <string name="level_indicator_summary">水平时亮起</string>
+    <string name="immersive_mode">沉浸模式</string>
+    <string name="immersive_mode_summary">表盘铺满屏幕</string>
     <string name="altitude_gps">校准海拔</string>
     <string name="altitude_gps_summary">使用位置信息获取高度以修正基准</string>
     <string name="altitude_display">海拔 %1$s</string>
